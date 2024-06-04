@@ -23,17 +23,14 @@
       ignore_errors: yes
       when: os_family == "RedHat"
 
-    - name: Install ec2-instance-connect (Ubuntu) using curl
+    - name: Install ec2-instance-connect (Ubuntu)
       shell: |
-        curl -O https://s3.amazonaws.com/ec2-instance-connect-pkg/ubuntu/ec2-instance-connect_1.1-2_all.deb
-        sudo dpkg -i ec2-instance-connect_1.1-2_all.deb
-        sudo apt-get -f install -y
+        sudo apt-get install -y ec2-instance-connect
       when: os_family == "Debian" and ec2_instance_connect_installed_ubuntu.rc != 0
 
-    - name: Install ec2-instance-connect (Amazon Linux) using curl
+    - name: Install ec2-instance-connect (Amazon Linux)
       shell: |
-        curl -O https://s3.amazonaws.com/ec2-instance-connect-pkg/amazon-linux-2/ec2-instance-connect-1.1-2.amzn2.noarch.rpm
-        sudo yum install -y ec2-instance-connect-1.1-2.amzn2.noarch.rpm
+        sudo yum install -y ec2-instance-connect
       when: os_family == "RedHat" and ec2_instance_connect_installed_amazon.rc != 0
 
     - name: Verify installation of ec2-instance-connect (Ubuntu)
