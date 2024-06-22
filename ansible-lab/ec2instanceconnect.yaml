@@ -1,0 +1,97 @@
+---
+- name: Verificar e instalar Amazon EC2 Instance Connect
+  hosts: ec2-instance-connect
+  become: yes
+  vars:
+    supported_amis:
+      - AL2023
+      - Amazon_Linux_2_2.0.20190618
+      - macOS_Sonoma_14.2.1
+      - macOS_Ventura_13.6.3
+      - macOS_Monterey_12.7.2
+      - Ubuntu_20.04
+    unsupported_amis:
+      - Amazon_Linux_2_before_2.0.20190618
+      - CentOS_Stream_8
+      - CentOS_Stream_9
+      - macOS_Sonoma_before_14.2.1
+      - macOS_Ventura_before_13.6.3
+      - macOS_Monterey_before_12.7.2
+      - Red_Hat_Enterprise_Linux_8
+      - Red_Hat_Enterprise_Linux_9
+      - Ubuntu_16.04
+      - Ubuntu_18.04
+
+  tasks:
+    - name: Determine the AMI
+      shell: |
+        cat /var/lib/cloud/instance/id
+      register: ami_id
+
+    - name: Set AMI facts
+      set_fact:
+        ami_name: "{{ ami_id.stdout.split(' ')[0] }}"
+
+    - name: Check if AMI is supported
+      fail:
+        msg: "Instancia sem suporte (Unsupported Instance). AMI '{{ ami_name }}' is not supported for EC2 Instance Connect."
+      when: not ami_name in supported_amis
+ 
+    - name: Determine o OS
+      command: cat /etc/os-release
+      register: os_release
+
+    - name: Setar OS facts
+      set_fact:
+        os_family: "{{ 'Debian' if 'ubuntu' in os_release.stdout.lower() else 'RedHat' if 'amzn' in os_release.stdout.lower() else 'Unknown' }}"
+
+    - name: Verificar se o OS e suportado
+      fail:
+        msg: "Instance OS is not supported for installing ec2-instance-connect."
+      when: os_family == "Unknown"
+
+    - name: Verificar se o ec2-instance-connect esta instalado (Ubuntu)
+      shell: |
+        apt list --installed | grep ec2-instance-connect
+      register: ec2_instance_connect_installed_ubuntu
+      ignore_errors: yes
+      when: os_family == "Debian"
+
+    - name: Verificar se o ec2-instance-connect esta instalado (Amazon Linux)
+      shell: |
+        rpm -qa | grep ec2-instance-connect
+      register: ec2_instance_connect_installed_amazon
+      ignore_errors: yes
+      when: os_family == "RedHat"
+
+    - name: Instalar ec2-instance-connect (Ubuntu)
+      shell: |
+        apt-get install ec2-instance-connect -y
+      when: os_family == "Debian" and ec2_instance_connect_installed_ubuntu.rc != 0
+
+    - name: Instalar ec2-instance-connect (Amazon Linux)
+      shell: |
+        yum install ec2-instance-connect -y
+      when: os_family == "RedHat" and ec2_instance_connect_installed_amazon.rc != 0
+
+    - name: Verificar a instalação do ec2-instance-connect (Ubuntu)
+      shell: |
+        dpkg -l | grep ec2-instance-connect
+      register: verify_installation_ubuntu
+      when: os_family == "Debian"
+
+    - name: Verificar a instalação do ec2-instance-connect (Amazon Linux)
+      shell: |
+        rpm -qa | grep ec2-instance-connect
+      register: verify_installation_amazon
+      when: os_family == "RedHat"
+
+    - name: Debug output (Ubuntu)
+      debug:
+        msg: "ec2-instance-connect installation result (Ubuntu): {{ verify_installation_ubuntu }}"
+      when: os_family == "Debian"
+
+    - name: Debug output (Amazon Linux)
+      debug:
+        msg: "ec2-instance-connect installation result (Amazon Linux): {{ verify_installation_amazon }}"
+      when: os_family == "RedHat"
